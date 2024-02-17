@@ -1,102 +1,96 @@
-# Create a docker private registry
+# Setting Up a Private Docker Registry
 
-## On EC2 instance-1:
+**Introduction:**
 
-Edit daemon.json to configure our private registry
+This guide will walk you through the process of setting up a private Docker registry. The registry will be secured with TLS certificates and basic authentication, providing a secure environment for storing and retrieving container images.
+
+**Note:** Feel free to adapt this guide for your local environment, following the same principles outlined here.
+
+**Prerequisites:**
+
+To embark on this journey, ensure that you have:
+- Two AWS EC2 instances
+- Docker installed on your instances
+
+Now, let's dive into the step-by-step process of creating your secure Docker registry.
+
+**Step 1:** Configure Docker Daemon
+
+Edit the Docker daemon configuration file to allow communication with your private registry. Open the configuration file:
 ```
 sudo nano /etc/docker/daemon.json
 ```
-Add the below line in your `/etc/docker/daemon.json` 
+Add the following line, replacing "Public IPv4 DNS" with the domain name of your Instance-1:
 ```
 {
     "insecure-registries": ["Public IPv4 DNS"]
 }
 ```
-*Public IPv4 DNS is the domain name given to every EC2 Instances*
-
-And restart your docker
+Restart Docker to apply the changes:
 ```
 sudo systemctl restart docker
 ```
-### Adding certifications to our private registry
+**Step 2:** Generate TLS Certificates
 
-Create self signed TLS certificate and TLS key
+Create self-signed TLS certificates and keys for securing the registry. Run the following command:
 ```
 openssl req -newkey rsa:4096 -nodes -sha256 -keyout /home/ubuntu/localhub/localhub.key -x509 -days 365 -out /home/ubuntu/localhub/localhub.crt
 ```
+**Note:** When you run above command it will prompt to fill some details, make sure to fill the following one `Common Name (e.g. server FQDN or YOUR name) []:` with your public dns name
 
-*openssl req: This command is used for certificate requests and certificate generating utility*
 
-*-newkey rsa:4096: Generate a new RSA private key with a length of 4096 bits*
+**Step 3:** Create User Credentials
 
-*-nodes: Do not encrypt the private key*
-
-*-sha256: Use the SHA-256 hash function for the certificate request*
-
-*-x509: Output a self-signed certificate*
-
-*-days 365: Set the validity period of the certificate to 365 days*
-
-### Create a user name and password for your docker registry
+Generate a username and password for Docker registry authentication using the htpasswd utility:
 ```
-docker run --rm httpd:alpine htpasswd -Bbn user pass > htpasswd
+docker run --rm httpd:alpine htpasswd -Bbn user pass > /home/ubuntu/localhub/auth/htpasswd
 ```
 
-*--rm: Removes the container automatically after it exits, making it a temporary or disposable container*
+**Step 4:** Run Docker Registry Container 
 
-*httpd:alpine: Specifies the Docker image to use, in this case, httpd:alpine. This image contains the Apache HTTP Server and is based on the Alpine Linux distribution*
-
-*htpasswd: This is a command-line utility for managing user files for basic authentication, commonly used with Apache HTTP Server*
-
-*-B: Specifies the use of the bcrypt password algorithm. Bcrypt is a more secure hashing algorithm compared to the default crypt algorithm*
-
-*-bn: Indicates that we are providing the password on the command line, rather than prompting for it interactively*
-
-### Run the registry container
+Start the Docker registry container with TLS and basic authentication:
 ```
-sudo docker run -d -p 443:443 --name local.hub -v /home/ubuntu/localhub/certs:/certs -v /home/ubuntu/localhub/registry:/var/lib/registry -v /home/ubuntu/localhub/auth:/auth -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e "REGISTRY_AUTH=htpasswd" -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhub.crt -e REGISTRY_HTTP_TLS_KEY=/certs/localhub.key registry
+sudo docker run -d -p 443:443 --name local.hub \
+-v /home/ubuntu/localhub/certs:/certs \
+-v /home/ubuntu/localhub/registry:/var/lib/registry \
+-v /home/ubuntu/localhub/auth:/auth \
+-e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
+-e "REGISTRY_AUTH=htpasswd" \
+-e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+-e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
+-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhub.crt \
+-e REGISTRY_HTTP_TLS_KEY=/certs/localhub.key \
+registry
 ```
+**Step 5:** Check Docker Private Registry
 
-*-e "REGISTRY_AUTH=htpasswd": Sets the authentication method to "htpasswd"*
-
-*-e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm": Specifies the realm for HTTP Basic Authentication*
-
-*-e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd: Sets the path to the htpasswd file*
-
-*-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhub.crt: Set the environment variable REGISTRY_HTTP_TLS_CERTIFICATE to specify the path to the TLS certificate file inside the container*
-
-*-e REGISTRY_HTTP_TLS_KEY=/certs/localhub.key: Set the environment variable REGISTRY_HTTP_TLS_KEY to specify the path to the TLS private key file inside the container*
-
-### Check weather your docker private registry is working or not
-
-Pull any desired docker image from docker hub.
-Here I am pulling nginx
+Pull an image from Docker Hub, tag it, and push it to your private registry:
 ```
 docker pull nginx
+````
 ```
-Tag the image with name and version
+docker tag nginx Public_IPv4_DNS/nginx:latest
 ```
-docker tag iamge_id your_regsitry/desired_name:version
 ```
-Push the image to your private registry
+docker push Public_IPv4_DNS/nginx:latest
 ```
-docker push your_registry/given_name:version
-```
-## On EC2 instance-2:
+## Configure Docker Daemon on another instance:
 
-AS Docker, by default, considers registries with self-signed certificates to be insecure we need to edit `daemon.json` to configure our private registry
+**Step 6:** Edit the Docker daemon configuration file:
 ```
 sudo nano /etc/docker/daemon.json
 ```
-Add the below line in your `/etc/docker/daemon.json`
+Add the following line, replacing "Public IPv4 DNS" with the domain name of Instance-1:
 ```
 {
     "insecure-registries": ["Public IPv4 DNS"]
 }
 ```
-*Here you should provide the Public IPv4 DNS of EC2 instance-1*
+**Step 7:** Pull Image from Private Registry on Instance-2
 
-And you can pull the previous image which you pushed to your docker repository
+Pull the image from the private registry hosted on Instance-1:
 ```
-docker pull your_registry/given_name:version
+docker pull Public_IPv4_DNS/nginx:latest
 ```
+
+Congratulations! You have successfully set up a private Docker registry on AWS EC2 instances, ensuring secure image storage and retrieval. Feel free to customize the configuration according to your specific requirements.
