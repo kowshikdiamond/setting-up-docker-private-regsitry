@@ -34,9 +34,9 @@ sudo systemctl restart docker
 
 Create self-signed TLS certificates and keys for securing the registry. Run the following command:
 ```
-openssl req -newkey rsa:4096 -nodes -sha256 -keyout /home/ubuntu/localhub/localhub.key -x509 -days 365 -out /home/ubuntu/localhub/localhub.crt
+openssl req -x509 -newkey rsa:4096 -keyout registry.key -out registry.crt -days 365 -nodes -subj "/CN=my-registry.local" -extensions v3_req -config <(cat /etc/ssl/openssl.cnf <(printf "[v3_req]\nsubjectAltName=DNS:local-docker-registry,DNS:localhost"))
 ```
-**Note:** When you run above command it will prompt to fill some details, make sure to fill the following one `Common Name (e.g. server FQDN or YOUR name) []:` with your public dns name
+**Note:** Replace local-docker-registry with your desried name
 
 
 **Step 3:** Create User Credentials
