@@ -50,16 +50,15 @@ docker run --rm httpd:alpine htpasswd -Bbn user pass > /home/ubuntu/localhub/aut
 
 Start the Docker registry container with TLS and basic authentication:
 ```
-sudo docker run -d -p 443:443 --name local.hub \
--v /home/ubuntu/localhub/certs:/certs \
--v /home/ubuntu/localhub/registry:/var/lib/registry \
--v /home/ubuntu/localhub/auth:/auth \
--e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
+sudo docker run -d -p 5001:5000 --name local-docker-registry \
+-v /root/certs:/certs \
+-v /root/registry:/var/lib/registry \
+-v /root/auth:/auth \
 -e "REGISTRY_AUTH=htpasswd" \
 -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
 -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
--e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhub.crt \
--e REGISTRY_HTTP_TLS_KEY=/certs/localhub.key \
+-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/registry.crt \
+-e REGISTRY_HTTP_TLS_KEY=/certs/registry.key \
 registry
 ```
 **Step 5:** Check Docker Private Registry
